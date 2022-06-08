@@ -224,7 +224,8 @@ class RSAReceiver :
         d, _, e = coprime_of(phi, self._bit_len)
         # Si e es negativo, para facilitar el trabajo con bytes, se usa el modulo N
         e = e % phi
-
+        print("E:", e, "D:", d) 
+        #print("E * D:", (e*d) % phi)
         self._private_key = PEM_format(d, N)
 
         return PEM_format(e, N)
@@ -243,22 +244,25 @@ class RSAReceiver :
         #print("Len d:", len_d, "Value:", len_d)
         d_bytes = self._private_key[4: 4 + len_d]
         d = int.from_bytes(d_bytes, "big")
-        #print("D:", d_bytes, "Value:", d)
+        #print("decrypt D:", d_bytes, "Value:", d)
         len_N_bytes = self._private_key[4 + len_d: 4 + len_d + 4]
         len_N = int.from_bytes(len_N_bytes, "big")
         #print("Len N:", len_N_bytes, "Value:", len_N)
         N_bytes = self._private_key[8 + len_d: 8 + len_d + len_N]
         N = int.from_bytes(N_bytes, "big")
-        #print("N:", N_bytes, "Value:", N)
-        chunk_size = len_N - 1
-        #print("Chunk size:", chunk_size)
+        #print("Decrytped N:", N_bytes, "Value:", N)
+        chunk_size = len_N
+        #print("Decrypted Chunk size:", chunk_size)
+        #print("Ciphertext len:", len(ciphertext))
         for i in range(0, len(ciphertext), chunk_size):
             msg_int = int.from_bytes(ciphertext[i: i + chunk_size], "big")
+            #print("I:", i, "Decrypted:", len(decrypted))
             #print("Msg chunk:", msg_int)
             
             #print("Bit length:",pow(msg_int, d, N).bit_length() / 8)
-            decrypted += pow(msg_int, d, N).to_bytes(len_N, "big")
-        return decrypted
+            #decrypted += pow(msg_int, d, N).to_bytes(len_N, "big")
+            decrypted.extend(pow(msg_int, d, N).to_bytes(len_N, "big"))
+        return decrypted.decode('utf-8').replace('\x00', '')
     
 class RSASender :
     def __init__ ( self , public_key : bytearray ) -> None :
@@ -289,9 +293,9 @@ class RSASender :
         #print("Len N:", len_N_bytes, "Value:", len_N)
         N_bytes = self._public_key[8 + len_e: 8 + len_e + len_N]
         N = int.from_bytes(N_bytes, "big")
-        #print("N:", N_bytes, "Value:", N)
+        #print("Encrypt N:", N_bytes, "Value:", N)
         chunk_size = len_N - 1
-        #print("Chunk size:", chunk_size)
+        #print("Encrypted Chunk size:", chunk_size)
         for i in range(0, len(message_bytes), chunk_size):
             msg_int = int.from_bytes(message_bytes[i: i + chunk_size], "big")
             #print("Msg chunk:", msg_int)
@@ -314,13 +318,14 @@ if __name__ == "__main__":
     cipher = sender.encrypt(text)
     print(b64encode(cipher) == b'ALwPm7JXWbqGeIflV8PYgprs6mSgCH2Ydy0rgvFolzY0mczKItlPSHueL54uvDJXIz9pXoHZGAOPWVYYbcwRh3EBl8pi3MraUC2BBFUviMPFwNMwza/QMd5DNG9tH8doHlLRRt+15wLrsIE+m5T8fuM4HHixSNcEoOdN8T++q0PkzQDXL+UgbusiD3J+QPO59aqAB5HFcZ7P5U3fhFS8Qm1vLG8vlIulCby0jGLgjTtLUhFD/QhAof0y4F20gxedQDHwAOIrz6PEoBWnHmwLU0QNN0Rs542RvJ8BeEGhBDS5ZvD0/0Ix3ZqKT6HtP4ugfPD75/5LYGioJBwrg2DXbQucFj8=')
     print("------------------------------------------------------------------")
-    reciever = RSAReceiver(16)
+    reciever = RSAReceiver(1000)
     print(reciever._private_key, reciever._public_key)
-
     sender = RSASender(reciever._public_key)
     cipher = sender.encrypt(text)
 
     decrypted = reciever.decrypt(cipher)
-    #print("Encrypted:", cipher)
-    #print("Decrypted:", decrypted)
-    print(str(cipher, 'utf-8'))
+    print("Encrypted:", len(cipher), cipher)
+    print("Decrypted:", len(decrypted), "Type:", type(decrypted), decrypted)
+    print(decrypted)
+    print(text)
+    print(decrypted==text)
